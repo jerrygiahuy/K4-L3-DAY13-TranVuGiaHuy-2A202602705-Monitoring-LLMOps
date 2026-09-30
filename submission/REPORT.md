@@ -4,13 +4,13 @@
 
 ## 1. Thông tin học viên
 
-- **Họ và tên:**
-- **MSSV:**
+- **Họ và tên:** Trần Vũ Gia Huy
+- **MSSV:** 2A202602705
 - **Lớp:** K4-L3B
-- **Repository URL:**
+- **Repository URL:** https://github.com/jerrygiahuy/K4-L3-DAY13-TranVuGiaHuy-2A202602705-Monitoring-LLMOps
 - **Commit SHA cuối:**
 - **Challenge ID:**
-- **Tên project Langfuse cá nhân:** `day13-k4-l3b-<MSSV>`
+- **Tên project Langfuse cá nhân:** `day13-k4-l3b-2A202602705`
 
 ## 2. Evidence index
 
@@ -37,12 +37,12 @@
 
 | Nội dung | Baseline | Kết quả cuối | Nhận xét |
 |---|---|---|---|
-| `validate_logs.py` | | | |
-| `validate_dashboard.py` | | | |
-| `pytest` | | | |
-| Số traces hợp lệ | | | |
-| Số PII leak | | | |
-| Latency P95 / TTFT P95 | | | |
+| `validate_logs.py` | 30/100 | | Thiếu correlation ID và enrichment là trạng thái starter trước CP1 |
+| `validate_dashboard.py` | 6/6 | | Dashboard contract ban đầu đã đủ sáu panel |
+| `pytest` | 22 passed | | Chạy bằng Python 3.12.14 |
+| Số traces hợp lệ | 0 | | Chưa cấu hình Langfuse key ở thời điểm đo baseline |
+| Số PII leak | 0 | | Baseline validator chưa phát hiện PII thô |
+| Latency P95 / TTFT P95 | 160 ms / 56 ms | | Tính từ `data/logs.jsonl` sau workload baseline |
 | Retrieval success rate | | | |
 
 ## 4. Logging và PII
