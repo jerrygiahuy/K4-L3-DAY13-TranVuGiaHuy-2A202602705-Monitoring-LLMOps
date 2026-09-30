@@ -38,8 +38,8 @@
 | Nội dung | Baseline | Kết quả cuối | Nhận xét |
 |---|---|---|---|
 | `validate_logs.py` | 30/100 | 100/100 | Sau CP1 có 11 correlation ID duy nhất, đủ enrichment và không có PII leak |
-| `validate_dashboard.py` | 6/6 | | Dashboard contract ban đầu đã đủ sáu panel |
-| `pytest` | 22 passed | 24 passed | Bổ sung test redaction CCCD và thẻ thanh toán |
+| `validate_dashboard.py` | 6/6 | 6/6 | Đủ latency, traffic, errors/retrieval, cost, tokens và quality |
+| `pytest` | 22 passed | 26 passed | Bổ sung test PII và child observations retrieval/generation |
 | Số traces hợp lệ | 0 | | Chưa cấu hình Langfuse key ở thời điểm đo baseline |
 | Số PII leak | 0 | 0 | Quét độc lập email, điện thoại VN, CCCD và thẻ thanh toán |
 | Latency P95 / TTFT P95 | 160 ms / 56 ms | | Tính từ `data/logs.jsonl` sau workload baseline |
@@ -54,10 +54,10 @@
 
 ## 5. Tracing và prompt versioning
 
-- **Cách xác nhận traces do chính tôi tạo trong project cá nhân:**
-- **Cấu trúc root/retrieval/generation observations:**
-- **Cách nối trace với log:**
-- **Prompt name:**
+- **Cách xác nhận traces do chính tôi tạo trong project cá nhân:** Chờ cấu hình key của project `day13-k4-l3b-2A202602705`; sẽ đối chiếu số request trong log với trace list và kiểm tra metadata project trước khi chụp evidence.
+- **Cấu trúc root/retrieval/generation observations:** Root trace `day13-agent-request` chứa agent observation `lab-agent-run`; bên trong có `retrieval` loại retriever và `generation` loại generation. Retrieval chỉ lưu query preview đã scrub cùng doc count; generation không capture raw input/output nhưng ghi model, usage, cost, preview đã scrub và managed prompt object.
+- **Cách nối trace với log:** `correlation_id` được bind từ middleware, truyền vào `LabAgent.run` và đặt trong trace metadata; tìm cùng giá trị đó trong structured log và Langfuse.
+- **Prompt name:** `day13-chat`
 - **Version/label baseline:**
 - **Version/label candidate:**
 - **Trace ID của mỗi version:**
@@ -65,10 +65,10 @@
 
 ## 6. Dashboard, SLO và alerts
 
-- **Dashboard và sáu panel:**
-- **SLO và lý do chọn:**
-- **Cách tính error budget:**
-- **Ba alert và runbook tương ứng:**
+- **Dashboard và sáu panel:** Dashboard contract có đúng sáu panel: latency P50/P95/P99 và TTFT; traffic theo phút; error rate cùng retrieval success trên mọi event có `tool_success`; cost; input/output tokens; quality proxy. Mỗi panel có nguồn, query, đơn vị, cửa sổ 60 phút, refresh 30 giây và threshold.
+- **SLO và lý do chọn:** 99.5% request trong cửa sổ 28 ngày phải có `response_sent` và latency không quá 3000 ms. Baseline P95 khoảng 160 ms; ngưỡng 3000 ms tạo khoảng đệm cho tải và dependency ngoài nhưng vẫn phản ánh trải nghiệm chậm rõ rệt.
+- **Cách tính error budget:** Phần không đạt cho phép là `100% - 99.5% = 0.5%`; với 10,000 request thì `10,000 × 0.005 = 50` request được phép lỗi hoặc chậm hơn ngưỡng.
+- **Ba alert và runbook tương ứng:** `HighLatencyP95` (>3000 ms trong 5m), `HighRequestErrorRate` (>2% trong 5m) và `LowRetrievalSuccessRate` (<90% trong 10m). Cả ba gửi Slack `#k4-l3b-alerts`, có severity/owner và runbook Metrics → Logs → Traces cùng mitigation tại `docs/alerts.md`.
 
 > Ví dụ cách viết error budget: "SLO 99.5% trong 28 ngày nghĩa là error budget 0.5%. Nếu workload có 10,000 request thì tối đa 50 request được phép lỗi hoặc chậm hơn ngưỡng SLO."
 

@@ -12,7 +12,7 @@ Lab không bắt buộc một công cụ dashboard cụ thể. Bạn có thể d
 |---|---|---|
 | Latency | `response_sent.latency_ms/ttft_ms` | latency P50/P95/P99 và TTFT P95 |
 | Traffic | `request_received` | count, request/phút |
-| Errors | `request_received`, `request_failed`, `error_type`, `tool_success` | error rate, breakdown và retrieval success |
+| Errors | `response_sent`, `request_failed`, `error_type`, `tool_success` | error rate, breakdown và retrieval success trên mọi event có trạng thái retrieval |
 | Cost | `response_sent.cost_usd` | tổng theo phút và toàn cửa sổ |
 | Tokens | `response_sent.tokens_in/tokens_out` | tổng theo từng field |
 | Quality | `response_sent.quality_score` | mean |
