@@ -37,20 +37,20 @@
 
 | Nội dung | Baseline | Kết quả cuối | Nhận xét |
 |---|---|---|---|
-| `validate_logs.py` | 30/100 | | Thiếu correlation ID và enrichment là trạng thái starter trước CP1 |
+| `validate_logs.py` | 30/100 | 100/100 | Sau CP1 có 11 correlation ID duy nhất, đủ enrichment và không có PII leak |
 | `validate_dashboard.py` | 6/6 | | Dashboard contract ban đầu đã đủ sáu panel |
-| `pytest` | 22 passed | | Chạy bằng Python 3.12.14 |
+| `pytest` | 22 passed | 24 passed | Bổ sung test redaction CCCD và thẻ thanh toán |
 | Số traces hợp lệ | 0 | | Chưa cấu hình Langfuse key ở thời điểm đo baseline |
-| Số PII leak | 0 | | Baseline validator chưa phát hiện PII thô |
+| Số PII leak | 0 | 0 | Quét độc lập email, điện thoại VN, CCCD và thẻ thanh toán |
 | Latency P95 / TTFT P95 | 160 ms / 56 ms | | Tính từ `data/logs.jsonl` sau workload baseline |
 | Retrieval success rate | | | |
 
 ## 4. Logging và PII
 
-- **Cách tạo/nhận và truyền correlation ID:**
-- **Các metadata được ghi vào structured log:**
-- **Cách bảo đảm PII được scrub trước khi ghi:**
-- **Cách kiểm chứng kết quả:**
+- **Cách tạo/nhận và truyền correlation ID:** Middleware xóa context cũ ở đầu request, ưu tiên `x-request-id` do client gửi; nếu thiếu thì sinh `req-` cùng 8 ký tự hex. ID được bind vào structlog context, lưu tại `request.state`, trả lại qua header `x-request-id` và xuất hiện trong mọi log của request.
+- **Các metadata được ghi vào structured log:** `correlation_id`, `user_id_hash`, `session_id`, `feature`, `model`, `env`, event, timestamp, level; response còn có latency, TTFT, token, cost, quality và trạng thái retrieval.
+- **Cách bảo đảm PII được scrub trước khi ghi:** `scrub_event` duyệt đệ quy toàn bộ giá trị string trong event dictionary và chạy trước `JsonlFileProcessor` lẫn JSON renderer. User ID chỉ được ghi dưới dạng SHA-256 rút gọn.
+- **Cách kiểm chứng kết quả:** Gửi request chứa email, điện thoại VN, CCCD và thẻ giả lập; header trả đúng `req-abcdef12` cùng response time. Quét raw log không thấy giá trị gốc, chỉ thấy marker `REDACTED_*`; `validate_logs.py` đạt 100/100 và pytest đạt 24/24.
 
 ## 5. Tracing và prompt versioning
 
