@@ -9,7 +9,7 @@
 - **Lớp:** K4-L3B
 - **Repository URL:** https://github.com/jerrygiahuy/K4-L3-DAY13-TranVuGiaHuy-2A202602705-Monitoring-LLMOps
 - **Commit SHA cuối:**
-- **Challenge ID:**
+- **Challenge ID:** `day13-k4-l3b-monitoring-llmops-v1`
 - **Tên project Langfuse cá nhân:** `day13-k4-l3b-2A202602705`
 
 ## 2. Evidence index
@@ -42,8 +42,8 @@
 | `pytest` | 22 passed | 26 passed | Bổ sung test PII và child observations retrieval/generation |
 | Số traces hợp lệ | 0 | 12 | Xác nhận bằng Langfuse Observations API v2; mỗi trace có agent, retrieval và generation |
 | Số PII leak | 0 | 0 | Quét độc lập email, điện thoại VN, CCCD và thẻ thanh toán |
-| Latency P95 / TTFT P95 | 160 ms / 56 ms | | Tính từ `data/logs.jsonl` sau workload baseline |
-| Retrieval success rate | | | |
+| Latency P95 / TTFT P95 | 162 ms / 55 ms | 2671 ms / 57 ms | P95 tăng mạnh trong challenge trong khi TTFT gần như không đổi |
+| Retrieval success rate | 100% | 100% | Retrieval vẫn trả kết quả nhưng bị chậm, vì vậy success rate không phát hiện riêng sự cố latency |
 
 ## 4. Logging và PII
 
@@ -74,33 +74,33 @@
 
 ## 7. Điều tra challenge
 
-- **Challenge ID:**
-- **Khoảng thời gian điều tra:**
-- **Triệu chứng từ metrics:**
-- **Log line và correlation ID liên quan:**
-- **Trace ID và span gây ảnh hưởng:**
-- **Root cause:**
-- **Fix action:**
-- **Preventive measure:**
+- **Challenge ID:** `day13-k4-l3b-monitoring-llmops-v1`
+- **Khoảng thời gian điều tra:** 2026-09-30 04:59:48–04:59:59 UTC (11:59:48–11:59:59 ICT).
+- **Triệu chứng từ metrics:** Baseline sạch gồm 10 request có P95 khoảng 162 ms. Năm request challenge đều vượt ngưỡng 2000 ms, lần lượt có server latency 2669, 2664, 2671, 2668 và 2670 ms; P95 challenge là 2671 ms. TTFT P95 chỉ khoảng 57 ms, error rate vẫn 0% và retrieval success vẫn 100%.
+- **Log line và correlation ID liên quan:** Event `response_sent` của session `k4-l3b-challenge-s05` có `correlation_id=req-e703d7eb`, `latency_ms=2671`, `ttft_ms=57`, `tool_name=retrieval` và `tool_success=true` tại `2026-09-30T04:59:53.586920Z`.
+- **Trace ID và span gây ảnh hưởng:** Trace `2501be955c24f8d7a8677adf8f6daf73` khớp request trên. Span `retrieval` chạy khoảng 2.51 giây (04:59:50.915–04:59:53.421 UTC), còn `generation` chỉ khoảng 0.16 giây; retrieval chiếm gần toàn bộ critical path.
+- **Root cause:** Sự cố `rag_slow` làm dependency/bước retrieval chậm. Đây là latency degradation chứ không phải retrieval failure hoặc prompt/generation regression: request vẫn HTTP 200, `tool_success=true`, TTFT và chi phí generation không tăng tương ứng.
+- **Fix action:** Tắt incident/khôi phục dependency retrieval, sau đó chạy lại cùng workload để xác nhận P95 xuống dưới 2000 ms. Nếu dependency chưa phục hồi, áp dụng timeout/circuit breaker và trả fallback an toàn thay vì giữ request chờ lâu.
+- **Preventive measure:** Giữ alert `HighLatencyP95` và bổ sung theo dõi riêng latency của span retrieval; cảnh báo khi retrieval P95 vượt ngưỡng trong 5 phút, đồng thời duy trì runbook Metrics → Logs → Traces, timeout, circuit breaker và kiểm thử tải định kỳ.
 
 > Gợi ý cách viết ngắn, không thay cho evidence thực tế: "Metric cho thấy `[latency/error/cost/quality]` bất thường trong `[khoảng thời gian]`. Log line `[event]` có `correlation_id=[...]` đại diện cho request bị ảnh hưởng. Trace cùng `correlation_id` cho thấy span `[retrieval/generation/prompt/tool]` có dấu hiệu `[chậm/lỗi/token tăng]`. Root cause là `[nguyên nhân suy ra từ evidence]`. Fix action là `[hành động khôi phục]`; preventive measure là `[alert/runbook/test/guardrail để ngăn tái diễn]`."
 
 ## 8. Giải thích và tự đánh giá
 
-- **Một quyết định kỹ thuật quan trọng và lý do:**
-- **Một lỗi/blocker đã gặp:**
-- **Cách tìm nguyên nhân và xử lý:**
-- **Cách hiểu luồng Metrics → Logs → Traces:**
-- **Vai trò của prompt version, token/cost, SLO hoặc rollback trong vận hành LLM:**
-- **Điều quan trọng nhất đã học:**
-- **Hạn chế hoặc phần chưa hoàn thành, nếu có:** Cần chụp các màn hình Langfuse và dashboard runtime thành evidence PNG; challenge CP3 chưa được Lab Coach cung cấp nên chưa điều tra incident chính thức.
+- **Một quyết định kỹ thuật quan trọng và lý do:** Không capture raw prompt/response trên trace; chỉ ghi preview đã scrub và metadata cần thiết. Cách này vẫn đủ nối log–trace và phân tích vận hành nhưng giảm nguy cơ đưa PII lên hệ thống quan sát.
+- **Một lỗi/blocker đã gặp:** Request challenge vẫn thành công và retrieval success vẫn 100%, nên chỉ nhìn error rate hoặc success rate sẽ không nhận ra sự cố.
+- **Cách tìm nguyên nhân và xử lý:** Bắt đầu từ P95 vượt ngưỡng, lọc log trong đúng khoảng thời gian để chọn `req-e703d7eb`, rồi mở trace cùng correlation ID và so sánh duration của retrieval với generation. Retrieval chiếm gần toàn bộ 2.67 giây nên xác định được root cause mà không đoán.
+- **Cách hiểu luồng Metrics → Logs → Traces:** Metrics cho biết triệu chứng và thời điểm; logs xác định request cụ thể cùng correlation ID; trace cho biết bước nào trên critical path gây chậm. Ba nguồn phải khớp nhau trước khi kết luận.
+- **Vai trò của prompt version, token/cost, SLO hoặc rollback trong vận hành LLM:** Prompt version giúp loại trừ hoặc xác nhận regression do thay prompt; token/cost cho biết tác động tài chính; SLO biến trải nghiệm người dùng thành ngưỡng đo được; rollback đưa production về phiên bản đã biết ổn định khi candidate gây vấn đề.
+- **Điều quan trọng nhất đã học:** HTTP 200 và tool success không đồng nghĩa hệ thống khỏe. Cần theo dõi latency phân vị và child span để phát hiện dependency chậm nhưng vẫn trả kết quả.
+- **Hạn chế hoặc phần chưa hoàn thành, nếu có:** Không còn phần kỹ thuật bắt buộc nào chưa hoàn thành; toàn bộ 14 evidence đã được lưu trong `submission/evidence/`.
 
 ## 9. Checklist trước khi nộp
 
-- [ ] Kết quả và evidence thuộc commit SHA cuối.
-- [ ] Tất cả ảnh/output mở được bằng đường dẫn tương đối.
-- [ ] Incident evidence nối đúng metric → log → trace.
-- [ ] Trace/prompt evidence thuộc project Langfuse cá nhân và ảnh không lộ key/secret.
-- [ ] Repository chạy lại được theo README.
-- [ ] Không có secret, API key, PII thô hoặc evidence của người khác/lớp khác.
+- [x] Kết quả và evidence thuộc commit SHA cuối.
+- [x] Tất cả ảnh/output mở được bằng đường dẫn tương đối.
+- [x] Incident evidence nối đúng metric → log → trace.
+- [x] Trace/prompt evidence thuộc project Langfuse cá nhân và ảnh không lộ key/secret.
+- [x] Repository chạy lại được theo README.
+- [x] Không có secret, API key, PII thô hoặc evidence của người khác/lớp khác.
 - [ ] URL repo và commit SHA cuối đã được nộp trên LMS/Codelabs.
