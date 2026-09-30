@@ -40,7 +40,7 @@
 | `validate_logs.py` | 30/100 | 100/100 | Sau CP1 có 11 correlation ID duy nhất, đủ enrichment và không có PII leak |
 | `validate_dashboard.py` | 6/6 | 6/6 | Đủ latency, traffic, errors/retrieval, cost, tokens và quality |
 | `pytest` | 22 passed | 26 passed | Bổ sung test PII và child observations retrieval/generation |
-| Số traces hợp lệ | 0 | | Chưa cấu hình Langfuse key ở thời điểm đo baseline |
+| Số traces hợp lệ | 0 | 12 | Xác nhận bằng Langfuse Observations API v2; mỗi trace có agent, retrieval và generation |
 | Số PII leak | 0 | 0 | Quét độc lập email, điện thoại VN, CCCD và thẻ thanh toán |
 | Latency P95 / TTFT P95 | 160 ms / 56 ms | | Tính từ `data/logs.jsonl` sau workload baseline |
 | Retrieval success rate | | | |
@@ -54,14 +54,14 @@
 
 ## 5. Tracing và prompt versioning
 
-- **Cách xác nhận traces do chính tôi tạo trong project cá nhân:** Chờ cấu hình key của project `day13-k4-l3b-2A202602705`; sẽ đối chiếu số request trong log với trace list và kiểm tra metadata project trước khi chụp evidence.
+- **Cách xác nhận traces do chính tôi tạo trong project cá nhân:** Tôi chạy workload với user hash và session riêng, flush SDK rồi truy vấn Langfuse Observations API v2 trong project `day13-k4-l3b-2A202602705`. API trả 12 root observations và mỗi trace có `correlation_id` khớp structured log local.
 - **Cấu trúc root/retrieval/generation observations:** Root trace `day13-agent-request` chứa agent observation `lab-agent-run`; bên trong có `retrieval` loại retriever và `generation` loại generation. Retrieval chỉ lưu query preview đã scrub cùng doc count; generation không capture raw input/output nhưng ghi model, usage, cost, preview đã scrub và managed prompt object.
 - **Cách nối trace với log:** `correlation_id` được bind từ middleware, truyền vào `LabAgent.run` và đặt trong trace metadata; tìm cùng giá trị đó trong structured log và Langfuse.
 - **Prompt name:** `day13-chat`
-- **Version/label baseline:**
-- **Version/label candidate:**
-- **Trace ID của mỗi version:**
-- **Cách promote và rollback `production`:**
+- **Version/label baseline:** Version 1, labels `baseline` và trạng thái cuối có `production`.
+- **Version/label candidate:** Version 2, label `candidate`.
+- **Trace ID của mỗi version:** baseline v1 `7e4235f83161b0852523059a6f825e7e`; candidate v2 `7857cccdc115177d229b684b6b90ed51`; production sau promote v2 `d3348fc717efa16f065eb3d4774a3ee1`; production sau rollback v1 `f292200259be343754e375416277fdbe`.
+- **Cách promote và rollback `production`:** Chuyển label `production` từ v1 sang v2, xóa cache prompt và gửi request kiểm chứng; sau đó chuyển `production` về v1, xóa cache và gửi lại. Trạng thái cuối được API xác nhận là `production=1`, `baseline=1`, `candidate=2`; token input cũng đổi từ 38 ở v1 thành 52 ở v2.
 
 ## 6. Dashboard, SLO và alerts
 
@@ -93,7 +93,7 @@
 - **Cách hiểu luồng Metrics → Logs → Traces:**
 - **Vai trò của prompt version, token/cost, SLO hoặc rollback trong vận hành LLM:**
 - **Điều quan trọng nhất đã học:**
-- **Hạn chế hoặc phần chưa hoàn thành, nếu có:**
+- **Hạn chế hoặc phần chưa hoàn thành, nếu có:** Cần chụp các màn hình Langfuse và dashboard runtime thành evidence PNG; challenge CP3 chưa được Lab Coach cung cấp nên chưa điều tra incident chính thức.
 
 ## 9. Checklist trước khi nộp
 
